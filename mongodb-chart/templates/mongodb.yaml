@@ -1,0 +1,101 @@
+apiVersion: psmdb.percona.com/v1
+kind: PerconaServerMongoDB
+metadata:
+  name: {{ include "namespace" . }}
+  namespace: {{ include "namespace" . }}
+  finalizers:
+    - delete-psmdb-pods-in-order
+#    - delete-psmdb-pvc
+
+spec:
+  crVersion: 1.13.0
+  image: percona/percona-server-mongodb:5.0.11-10
+  imagePullPolicy: Always
+  allowUnsafeConfigurations: true    
+  updateStrategy: SmartUpdate
+  upgradeOptions:
+    versionServiceEndpoint: https://check.percona.com
+    apply: disabled
+    schedule: "0 2 * * *"
+    setFCV: false
+  secrets:
+    users: accuknox-mongodb-secrets
+ 
+  # pmm:
+  #   enabled: true
+  #   image: percona/pmm-client:2.30.0
+  #   serverHost: monitoring-service.accuknox-monitoring.svc.cluster.local:443
+
+  replsets:
+  - name: rs0
+    size: {{ .Values.replsets }}
+    configuration: |
+      systemLog:
+        verbosity: 1
+      security:
+        enableEncryption: false
+    podDisruptionBudget:
+      maxUnavailable: 1
+#      minAvailable: 0
+    expose:
+      enabled: false 
+      exposeType: ClusterIP
+
+    {{- with .Values.nodeSelector }}
+    nodeSelector: 
+      {{- toYaml . | nindent 8 }}
+    {{- end }}
+     {{- with .Values.tolerations }}
+    tolerations:
+      {{- toYaml . | nindent 6 }}
+    {{- end }}
+    resources: 
+      {{- toYaml .Values.resources | nindent 8 }} 
+    volumeSpec:
+      persistentVolumeClaim:
+        storageClassName: {{ .Values.persistentVolumeClaim.storageClassName }}
+        accessModes: {{ .Values.persistentVolumeClaim.accessModes }}
+        resources:
+          requests:
+            storage: {{ .Values.persistentVolumeClaim.storage }}
+
+    mongos:
+      size: {{ .Values.replsets }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector: 
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
+      podDisruptionBudget:
+        maxUnavailable: 1
+      resources: {} 
+      expose:
+        exposeType: ClusterIP
+
+  backup:
+    enabled: {{ .Values.backup.enabled }}
+    image: percona/percona-backup-mongodb:1.8.1
+    serviceAccountName: percona-server-mongodb-operator
+    storages:        
+      s3-us-west:
+        type: s3
+        s3:
+          bucket: {{ .Values.backup.s3.bucket }}
+          credentialsSecret: accuknox-mongodb-backup-s3
+          region: {{ .Values.backup.s3.region }}
+          prefix: {{ .Values.backup.s3.prefix }}
+          uploadPartSize: 10485760
+          maxUploadParts: 10000
+          storageClass: STANDARD
+
+    tasks:
+     - name: daily-s3-us-west
+       enabled: true
+       schedule: "0 0 * * *"
+       keep: 3
+       storageName: s3-us-west
+       compressionType: gzip
+       compressionLevel: 6

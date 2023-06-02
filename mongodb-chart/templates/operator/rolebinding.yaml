@@ -1,0 +1,13 @@
+---
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: service-account-percona-server-mongodb-operator
+  namespace: {{ include "namespace" . }}
+subjects:
+- kind: ServiceAccount
+  name: percona-server-mongodb-operator
+roleRef:
+  kind: Role
+  name: percona-server-mongodb-operator
+  apiGroup: rbac.authorization.k8s.io

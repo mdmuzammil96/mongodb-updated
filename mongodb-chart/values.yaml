@@ -1,0 +1,40 @@
+#OperatorReplicaCount
+replicas: 1
+
+#namespace
+namespace: "accuknox-mongodb-test"
+
+#mongosReplsets
+replsets : 1
+
+#nodeSelector&tolerations
+nodeSelector:
+  # mongodb: "true"
+tolerations: 
+  # - key: "mongodb"
+  #   operator: "Equal"
+  #   value: "true"
+  #   effect: "NoSchedule"
+
+#volumeSpec:
+persistentVolumeClaim:
+  storageClassName: ebs-sc
+  accessModes: [ "ReadWriteOnce" ]
+  storage: 20Gi
+
+#resources
+resources:
+  limits:
+    cpu: "800m"
+    memory: "2G"
+  requests:
+    cpu: "400m"
+    memory: "1G"
+
+#bacukupConfig
+backup:
+  enabled: true  
+  s3:
+    bucket: accuknox-mongodb-backup
+    region: us-east-2
+    prefix: "MongoDB-daily"
